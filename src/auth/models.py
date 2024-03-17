@@ -7,8 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from src.database import Base
 
 if TYPE_CHECKING:
-    from src.bank.models import Bank, Account, Loan
-
+    from src.bank.models import Bank, Account, Loan, Teller
 
 created_at = Annotated[
     datetime,
@@ -35,15 +34,18 @@ class User(Base):
     phone_number: Mapped[str] = mapped_column(String(13), nullable=False)
     hashed_password: Mapped[str] = mapped_column(LargeBinary)
     accounts_number: Mapped[int | None] = mapped_column(default=0, nullable=True)
+
     is_active: Mapped[bool | None] = mapped_column(
         Boolean, default=False, server_default="false"
     )
-    is_superuser: Mapped[bool | None] = mapped_column(Boolean, default=False, server_default="false")
-    is_staff: Mapped[bool | None] = mapped_column(Boolean, default=False, server_default="false")
+    is_superuser: Mapped[bool | None] = mapped_column(
+        Boolean, default=False, server_default="false"
+    )
 
     created_at: Mapped[created_at]
     updated_at: Mapped[updated_at]
 
+    teller: Mapped["Teller"] = relationship(back_populates="user")
     banks: Mapped[list["Bank"]] = relationship(
         secondary="bank_user_association",
         back_populates="users",

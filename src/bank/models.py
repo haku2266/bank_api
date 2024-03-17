@@ -31,15 +31,7 @@ class Bank(Base):
     users: Mapped[list["User"]] = relationship(
         secondary="bank_user_association", back_populates="banks"
     )
-    # staff: Mapped[list["User"]] = relationship(
-    #     secondary="bank_user_association",
-    #     back_populates="banks",
-    #     primaryjoin="and_(Bank.id == BankUserAssociation.bank_id)",
-    #     secondaryjoin="and_(User.id == BankUserAssociation.user_id, User.is_staff == True)",
-    #     viewonly=True,
-    #     overlaps="users"
-    #
-    # )
+    tellers: Mapped[list["Teller"]] = relationship(back_populates="bank")
     accounts: Mapped[list["Account"]] = relationship(back_populates="bank")
     loan_types: Mapped[list["LoanType"]] = relationship(back_populates="bank")
 
@@ -60,6 +52,15 @@ class BankUserAssociation(Base):
     def __repr__(self) -> str:
         return f"<BankUserAssociation: {self.id}"
 
+
+class Teller(Base):
+    __tablename__ = "teller"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    bank_id: Mapped[int] = mapped_column(ForeignKey("bank.id"))
+    user_id: Mapped[int] = mapped_column(ForeignKey("user.id"), unique=True)
+
+    bank: Mapped['Bank'] = relationship(back_populates="tellers")
+    user: Mapped['User'] = relationship(back_populates="teller")
 
 class Deposit(Base):
     __tablename__ = "deposit"

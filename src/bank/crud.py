@@ -8,7 +8,7 @@ from sqlalchemy.orm import aliased, selectinload, joinedload
 
 from src.auth.models import User
 from src.bank.schemas import BankCreateSchema, BankPartialUpdateSchema
-from src.bank.models import Bank, BankUserAssociation
+from src.bank.models import Bank, BankUserAssociation, Teller
 
 
 class BankCRUD:
@@ -117,7 +117,6 @@ class BankCRUD:
                 User.phone_number,
                 User.accounts_number,
                 User.is_active,
-                User.is_staff,
                 User.created_at,
                 User.updated_at,
             )
@@ -131,7 +130,7 @@ class BankCRUD:
         return list(objs)
 
     @staticmethod
-    async def list_staff_of_bank(db: AsyncSession, bank: Bank) -> list:
+    async def list_tellers_of_bank(db: AsyncSession, bank: Bank) -> list:
         query = (
             select(
                 User.id,
@@ -140,16 +139,21 @@ class BankCRUD:
                 User.phone_number,
                 User.accounts_number,
                 User.is_active,
-                User.is_staff,
                 User.created_at,
                 User.updated_at,
             )
             .select_from(User)
-            .join(BankUserAssociation, BankUserAssociation.user_id == User.id)
-            .join(Bank, BankUserAssociation.bank_id == bank.id)
-            .where(User.is_staff==True)
+            .join(Teller, Teller.user_id == User.id)
+            .join(Bank, Teller.bank_id == bank.id)
         )
 
         result = await db.execute(query)
         objs = result.unique().all()
         return list(objs)
+
+    @staticmethod
+    async def add_teller_to_bank(db: AsyncSession, bank: Bank, user: User) -> User:
+        new_teller = Teller(**{"bank_id": bank.id, "user_id": user.id})
+        db.add(new_teller)
+        await db.commit()
+        return new_teller.user

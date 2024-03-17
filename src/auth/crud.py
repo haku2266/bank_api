@@ -44,7 +44,6 @@ class UserCRUD:
                 u1.phone_number,
                 u1.accounts_number,
                 u1.is_active,
-                u1.is_staff,
                 u1.created_at,
                 u1.updated_at,
             )

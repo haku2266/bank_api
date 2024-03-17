@@ -84,7 +84,10 @@ async def add_user_to_bank(
             detail={"user_id": "User is already registered to this bank"},
         )
 
-    return {"message": "User added successfully"}
+    return {
+        "message": "User added successfully",
+        "data": UserListSchema.model_validate(user, from_attributes=True),
+    }
 
 
 @router.get("/{bank_id}/user/list/", tags=["Bank~User"])
@@ -121,13 +124,33 @@ async def delete_user_from_bank(
         )
 
 
-@router.get("/{bank_id}/staff/list/", tags=["Bank~User"])
-async def list_staff_in_bank(
+@router.get("/{bank_id}/teller/list/", tags=["Bank~User"])
+async def list_tellers_in_bank(
     bank: Bank = Depends(retrieve_bank_dependency),
     db: AsyncSession = Depends(get_async_session),
 ):
-    result = await BankCRUD.list_staff_of_bank(db=db, bank=bank)
+    result = await BankCRUD.list_tellers_of_bank(db=db, bank=bank)
     print(result)
     return {
         "data": [UserListSchema.model_validate(i, from_attributes=True) for i in result]
     }
+
+
+@router.post("/{bank_id}/teller/add/{user_id}/", tags=["Bank~User"])
+async def add_teller_to_bank(
+    bank: Bank = Depends(retrieve_bank_with_users_dependency),
+    user: User = Depends(retrieve_user_dependency),
+    db: AsyncSession = Depends(get_async_session),
+):
+    try:
+        result = await BankCRUD.add_teller_to_bank(db=db, bank=bank, user=user)
+        return {
+            "message": "Teller added successfully",
+            "data": UserListSchema.model_validate(result, from_attributes=True),
+        }
+
+    except IntegrityError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"user_id": "Teller is already registered to this bank"},
+        )
