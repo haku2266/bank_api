@@ -23,7 +23,7 @@ from src.auth.dependencies import retrieve_user_dependency
 router = APIRouter(prefix="/bank")
 
 
-@router.post("/create/",tags=["Bank"])
+@router.post("/create/", tags=["Bank"])
 async def create_bank(
     bank_schema: BankCreateSchema, db: AsyncSession = Depends(get_async_session)
 ):
@@ -113,11 +113,16 @@ async def delete_user_from_bank(
         bank.users.remove(user)
         await db.commit()
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "user_id": f"user with id {user.id} is not registered in this bank"
+            },
+        )
 
 
-@router.get("/{bank_id}/staff/")
-async def get_staff(
+@router.get("/{bank_id}/staff/list/", tags=["Bank~User"])
+async def list_staff_in_bank(
     bank: Bank = Depends(retrieve_bank_dependency),
     db: AsyncSession = Depends(get_async_session),
 ):

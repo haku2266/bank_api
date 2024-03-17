@@ -34,12 +34,7 @@ async def list_users(
     size: int = Query(10, ge=1),
 ):
     result = await UserCRUD.list_users(db=db, page=page, size=size)
-    if not result:
-        return {
-            "page": page,
-            "size": size,
-            "data": None,
-        }
+
     return {
         "page": page,
         "size": size,

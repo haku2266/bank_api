@@ -117,6 +117,7 @@ class BankCRUD:
                 User.phone_number,
                 User.accounts_number,
                 User.is_active,
+                User.is_staff,
                 User.created_at,
                 User.updated_at,
             )
