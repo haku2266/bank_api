@@ -38,6 +38,9 @@ class User(Base):
     is_active: Mapped[bool | None] = mapped_column(
         Boolean, default=False, server_default="false"
     )
+    is_superuser: Mapped[bool | None] = mapped_column(Boolean, default=False, server_default="false")
+    is_staff: Mapped[bool | None] = mapped_column(Boolean, default=False, server_default="false")
+
     created_at: Mapped[created_at]
     updated_at: Mapped[updated_at]
 

@@ -31,7 +31,15 @@ class Bank(Base):
     users: Mapped[list["User"]] = relationship(
         secondary="bank_user_association", back_populates="banks"
     )
-    tellers: Mapped[list["Teller"]] = relationship(back_populates="bank")
+    # staff: Mapped[list["User"]] = relationship(
+    #     secondary="bank_user_association",
+    #     back_populates="banks",
+    #     primaryjoin="and_(Bank.id == BankUserAssociation.bank_id)",
+    #     secondaryjoin="and_(User.id == BankUserAssociation.user_id, User.is_staff == True)",
+    #     viewonly=True,
+    #     overlaps="users"
+    #
+    # )
     accounts: Mapped[list["Account"]] = relationship(back_populates="bank")
     loan_types: Mapped[list["LoanType"]] = relationship(back_populates="bank")
 
@@ -45,24 +53,12 @@ class BankUserAssociation(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("user.id"))
     bank_id: Mapped[int] = mapped_column(ForeignKey("bank.id"))
 
-
     __table_args__ = (
         UniqueConstraint("user_id", "bank_id", name="unique_user_bank_combination"),
     )
+
     def __repr__(self) -> str:
         return f"<BankUserAssociation: {self.id}"
-
-
-class Teller(Base):
-    __tablename__ = "teller"
-    id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(String(100))
-    bank_id: Mapped[int] = mapped_column(ForeignKey("bank.id", ondelete="CASCADE"))
-
-    bank: Mapped["Bank"] = relationship(back_populates="tellers")
-
-    def __repr__(self) -> str:
-        return f"<Teller:{self.id}~Bank:{self.bank_id}>"
 
 
 class Deposit(Base):
@@ -116,8 +112,8 @@ class Account(Base):
     money: Mapped[int | None] = mapped_column(default=0)
     created_at: Mapped[created_at]
 
-    user: Mapped['User'] = relationship(back_populates="accounts")
-    bank: Mapped['Bank'] = relationship(back_populates="accounts")
+    user: Mapped["User"] = relationship(back_populates="accounts")
+    bank: Mapped["Bank"] = relationship(back_populates="accounts")
     deposits: Mapped[list["Deposit"]] = relationship(back_populates="account")
     withdraws: Mapped[list["Withdraw"]] = relationship(back_populates="account")
     loans: Mapped[list["Loan"]] = relationship(back_populates="account")

@@ -1,8 +1,8 @@
 """empty message
 
-Revision ID: dcbe63544adc
+Revision ID: a99d8612f414
 Revises: 
-Create Date: 2024-03-16 13:05:06.855865
+Create Date: 2024-03-17 20:56:31.460735
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'dcbe63544adc'
+revision: str = 'a99d8612f414'
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -25,7 +25,7 @@ def upgrade() -> None:
     sa.Column('name', sa.String(length=100), nullable=False),
     sa.Column('location', sa.Text(), nullable=True),
     sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('id')
+    sa.UniqueConstraint('name')
     )
     op.create_table('user',
     sa.Column('id', sa.Integer(), nullable=False),
@@ -35,6 +35,8 @@ def upgrade() -> None:
     sa.Column('hashed_password', sa.LargeBinary(), nullable=False),
     sa.Column('accounts_number', sa.Integer(), nullable=True),
     sa.Column('is_active', sa.Boolean(), server_default='false', nullable=True),
+    sa.Column('is_superuser', sa.Boolean(), server_default='false', nullable=True),
+    sa.Column('is_staff', sa.Boolean(), server_default='false', nullable=True),
     sa.Column('created_at', sa.DateTime(), server_default=sa.text("TIMEZONE('utc', now())"), nullable=False),
     sa.Column('updated_at', sa.DateTime(), server_default=sa.text("TIMEZONE('utc', now())"), nullable=False),
     sa.PrimaryKeyConstraint('id'),
@@ -56,7 +58,8 @@ def upgrade() -> None:
     sa.Column('bank_id', sa.Uuid(), nullable=False),
     sa.ForeignKeyConstraint(['bank_id'], ['bank.id'], ),
     sa.ForeignKeyConstraint(['user_id'], ['user.id'], ),
-    sa.PrimaryKeyConstraint('id')
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('user_id', 'bank_id', name='unique_user_bank_combination')
     )
     op.create_table('loan_type',
     sa.Column('id', sa.Integer(), nullable=False),
@@ -70,13 +73,6 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['bank_id'], ['bank.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('name')
-    )
-    op.create_table('teller',
-    sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('name', sa.String(length=100), nullable=False),
-    sa.Column('bank_id', sa.Uuid(), nullable=False),
-    sa.ForeignKeyConstraint(['bank_id'], ['bank.id'], ondelete='CASCADE'),
-    sa.PrimaryKeyConstraint('id')
     )
     op.create_table('deposit',
     sa.Column('id', sa.Integer(), nullable=False),
@@ -131,7 +127,6 @@ def downgrade() -> None:
     op.drop_table('withdraw')
     op.drop_table('loan')
     op.drop_table('deposit')
-    op.drop_table('teller')
     op.drop_table('loan_type')
     op.drop_table('bank_user_association')
     op.drop_table('account')

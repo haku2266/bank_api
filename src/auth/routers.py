@@ -8,10 +8,10 @@ from src.auth.crud import UserCRUD
 from src.database import get_async_session
 from src.auth.dependencies import retrieve_user_dependency
 
-router = APIRouter(prefix="/user", tags=["User"])
+router = APIRouter(prefix="/user")
 
 
-@router.post("/create/", status_code=201)
+@router.post("/create/", status_code=201, tags=["User"])
 async def create_user(
     user_schema: UserCreateSchema, db: AsyncSession = Depends(get_async_session)
 ):
@@ -27,7 +27,7 @@ async def create_user(
     }
 
 
-@router.get("/list/")
+@router.get("/list/", tags=["User"])
 async def list_users(
     db: AsyncSession = Depends(get_async_session),
     page: int = Query(1, ge=1),
@@ -49,14 +49,14 @@ async def list_users(
     }
 
 
-@router.get("/retrieve/{user_id}/")
+@router.get("/retrieve/{user_id}/", tags=["User"])
 async def retrieve_user(user: User = Depends(retrieve_user_dependency)):
     return {
         "data": UserListSchema.model_validate(user, from_attributes=True),
     }
 
 
-@router.patch("/update/{user_id}/")
+@router.patch("/update/{user_id}/", tags=["User"])
 async def partial_update_user(
     user_schema: UserPartialUpdateSchema,
     db: AsyncSession = Depends(get_async_session),
@@ -68,10 +68,38 @@ async def partial_update_user(
     return {"data": UserListSchema.model_validate(result, from_attributes=True)}
 
 
-@router.delete("/delete/{user_id}/", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/delete/{user_id}/", status_code=status.HTTP_204_NO_CONTENT, tags=["User"])
 async def delete_user(
     user: User = Depends(retrieve_user_dependency),
     db: AsyncSession = Depends(get_async_session),
 ):
     result = await UserCRUD.delete_user(db=db, user=user)
     return None
+
+
+@router.get("/me/", tags=["User-Me"])
+async def retrieve_user_me(db: AsyncSession = Depends(get_async_session)):
+    pass
+
+
+@router.get("/me/banks/", tags=["User-Me"])
+async def retrieve_my_banks():
+    pass
+
+
+@router.get("/me/accounts/", tags=["User-Me"])
+async def retrieve_my_accounts():
+    pass
+
+
+@router.get("/me/loans/", tags=["User-Me"])
+async def retrieve_my_loans():
+    pass
+
+@router.patch("/me/update/", tags=["User-Me"])
+async def update_user_me():
+    pass
+
+@router.delete("/me/delete/", tags=["User-Me"])
+async def delete_user_me():
+    pass

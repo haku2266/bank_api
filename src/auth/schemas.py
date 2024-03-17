@@ -58,6 +58,7 @@ class UserListSchema(BaseModel):
     phone_number: str = Field(max_length=13, examples=["+998883010504"])
     accounts_number: int | None
     is_active: bool
+    is_staff: bool
     created_at: datetime | None
 
     model_config = ConfigDict(from_attributes=True)

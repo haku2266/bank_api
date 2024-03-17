@@ -3,11 +3,12 @@ from uuid import UUID
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy import select, func
+from sqlalchemy import select, func, column
 from sqlalchemy.orm import aliased, selectinload, joinedload
 
+from src.auth.models import User
 from src.bank.schemas import BankCreateSchema, BankPartialUpdateSchema
-from src.bank.models import Bank
+from src.bank.models import Bank, BankUserAssociation
 
 
 class BankCRUD:
@@ -105,3 +106,49 @@ class BankCRUD:
         await db.delete(bank)
         await db.commit()
         return None
+
+    @staticmethod
+    async def list_users_of_bank(db: AsyncSession, bank: Bank) -> list:
+        query = (
+            select(
+                User.id,
+                User.name,
+                User.email,
+                User.phone_number,
+                User.accounts_number,
+                User.is_active,
+                User.created_at,
+                User.updated_at,
+            )
+            .select_from(User)
+            .join(BankUserAssociation, BankUserAssociation.user_id == User.id)
+            .join(Bank, BankUserAssociation.bank_id == bank.id)
+        )
+
+        result = await db.execute(query)
+        objs = result.unique().all()
+        return list(objs)
+
+    @staticmethod
+    async def list_staff_of_bank(db: AsyncSession, bank: Bank) -> list:
+        query = (
+            select(
+                User.id,
+                User.name,
+                User.email,
+                User.phone_number,
+                User.accounts_number,
+                User.is_active,
+                User.is_staff,
+                User.created_at,
+                User.updated_at,
+            )
+            .select_from(User)
+            .join(BankUserAssociation, BankUserAssociation.user_id == User.id)
+            .join(Bank, BankUserAssociation.bank_id == bank.id)
+            .where(User.is_staff==True)
+        )
+
+        result = await db.execute(query)
+        objs = result.unique().all()
+        return list(objs)

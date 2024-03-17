@@ -16,7 +16,6 @@ from src.bank.models import (
     LoanCompensation,
     Loan,
     LoanType,
-    Teller,
 )
 from src.config import settings
 from src.database import Base

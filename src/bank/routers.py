@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
-
 from src.auth.models import User
+from src.auth.schemas import UserListSchema
 from src.database import get_async_session
 
 from src.bank.schemas import (
@@ -13,20 +13,24 @@ from src.bank.schemas import (
 )
 from src.bank.crud import BankCRUD
 from src.bank.models import Bank
-from src.bank.dependencies import retrieve_bank_with_users_dependency, retrieve_bank_dependency
+from src.bank.dependencies import (
+    retrieve_bank_with_users_dependency,
+    retrieve_bank_dependency,
+    retrieve_bank_with_staff_dependency,
+)
 from src.auth.dependencies import retrieve_user_dependency
 
 router = APIRouter(prefix="/bank")
 
 
-@router.post("/create/", response_model=BankCreatedRetrieve, tags=["Bank"])
+@router.post("/create/",tags=["Bank"])
 async def create_bank(
     bank_schema: BankCreateSchema, db: AsyncSession = Depends(get_async_session)
 ):
     result = await BankCRUD.create_bank(db=db, bank_schema=bank_schema)
     return {
         "message": "Bank is created successfully",
-        "data": result,
+        "data": BankCreatedRetrieve.model_validate(result, from_attributes=True),
     }
 
 
@@ -65,7 +69,7 @@ async def partial_update_bank(
     return {"data": BankListSchema.model_validate(result, from_attributes=True)}
 
 
-@router.post("/{bank_id}/add/user/{user_id}/", tags=["Bank~Users"])
+@router.post("/{bank_id}/user/add/{user_id}/", tags=["Bank~User"])
 async def add_user_to_bank(
     bank: Bank = Depends(retrieve_bank_with_users_dependency),
     user: User = Depends(retrieve_user_dependency),
@@ -77,7 +81,48 @@ async def add_user_to_bank(
     except IntegrityError:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="User is already registered to this bank",
+            detail={"user_id": "User is already registered to this bank"},
         )
 
     return {"message": "User added successfully"}
+
+
+@router.get("/{bank_id}/user/list/", tags=["Bank~User"])
+async def list_users_in_bank(
+    bank: Bank = Depends(retrieve_bank_dependency),
+    db: AsyncSession = Depends(get_async_session),
+):
+    result = await BankCRUD.list_users_of_bank(db=db, bank=bank)
+    print(result)
+    return {
+        "data": [UserListSchema.model_validate(i, from_attributes=True) for i in result]
+    }
+
+
+@router.delete(
+    "/{bank_id}/user/delete/{user_id}/",
+    tags=["Bank~User"],
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_user_from_bank(
+    bank: Bank = Depends(retrieve_bank_with_users_dependency),
+    user: User = Depends(retrieve_user_dependency),
+    db: AsyncSession = Depends(get_async_session),
+):
+    try:
+        bank.users.remove(user)
+        await db.commit()
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+
+@router.get("/{bank_id}/staff/")
+async def get_staff(
+    bank: Bank = Depends(retrieve_bank_dependency),
+    db: AsyncSession = Depends(get_async_session),
+):
+    result = await BankCRUD.list_staff_of_bank(db=db, bank=bank)
+    print(result)
+    return {
+        "data": [UserListSchema.model_validate(i, from_attributes=True) for i in result]
+    }
