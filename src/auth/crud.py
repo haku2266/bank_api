@@ -4,7 +4,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy import select, func
 from sqlalchemy.orm import aliased
 
-from src.auth.schemas import UserList
+from src.auth.schemas import UserListSchema, UserPartialUpdateSchema
 from src.auth.models import User
 
 
@@ -56,3 +56,39 @@ class UserCRUD:
         result = (await db.execute(query)).all()
 
         return list(result)
+
+    @staticmethod
+    async def retrieve_user(db: AsyncSession, user_id: int) -> User | None:
+        query = select(User).where(User.id == user_id)
+        result = await db.scalar(query)
+        return result
+
+    @staticmethod
+    async def partial_update_user(
+        db: AsyncSession,
+        user_schema: UserPartialUpdateSchema,
+        user: User,
+    ) -> User:
+        new_data = user_schema.model_dump(exclude_unset=True)
+        try:
+            for key, value in new_data.items():
+                setattr(user, key, value)
+
+            # db.add(user)
+            await db.commit()
+            return user
+        except IntegrityError as e:
+            await db.rollback()
+            if "unique constraint" in str(e).lower():
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail={
+                        "phone_number": f'person with phone number \'{new_data["phone_number"]}\' already exists'
+                    },
+                )
+
+    @staticmethod
+    async def delete_user(db: AsyncSession, user: User) -> None:
+        await db.delete(user)
+        await db.commit()
+        return None

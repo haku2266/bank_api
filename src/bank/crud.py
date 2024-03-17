@@ -1,10 +1,12 @@
+from uuid import UUID
+
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import select, func
 from sqlalchemy.orm import aliased, selectinload, joinedload
 
-from src.bank.schemas import BankCreateSchema
+from src.bank.schemas import BankCreateSchema, BankPartialUpdateSchema
 from src.bank.models import Bank
 
 
@@ -27,18 +29,79 @@ class BankCRUD:
             )
 
     @staticmethod
-    async def list_banks(db: AsyncSession, page: int = 1, size: int = 10) -> list:
+    async def list_banks(
+        db: AsyncSession,
+        page: int = 1,
+        size: int = 10,
+        name_i_contains: str | None = None,
+    ) -> list:
         offset = (page - 1) * size
         limit = size
 
-        query = (
-            select(Bank)
-            .options(joinedload(Bank.loan_types))
-            .order_by(Bank.id)
-            .offset(offset)
-            .limit(limit)
-        )
+        if name_i_contains is None:
+            query = (
+                select(Bank)
+                .options(joinedload(Bank.loan_types))
+                .order_by(Bank.id)
+                .offset(offset)
+                .limit(limit)
+            )
+        else:
+            query = (
+                select(Bank)
+                .options(joinedload(Bank.loan_types))
+                .where(Bank.name.icontains(f"%{name_i_contains}%"))
+                .order_by(Bank.id)
+                .offset(offset)
+                .limit(limit)
+            )
 
         result = (await db.execute(query)).unique().scalars().all()
 
         return list(result)
+
+    @staticmethod
+    async def retrieve_bank(db: AsyncSession, bank_id: UUID) -> Bank | None:
+        query = (
+            select(Bank).options(joinedload(Bank.loan_types)).where(Bank.id == bank_id)
+        )
+
+        result = await db.scalar(query)
+
+        return result
+
+    @staticmethod
+    async def retrieve_bank_with_users(db: AsyncSession, bank_id: UUID) -> Bank | None:
+        query = select(Bank).options(selectinload(Bank.users)).where(Bank.id == bank_id)
+        result = await db.scalar(query)
+        return result
+
+    @staticmethod
+    async def partial_update_bank(
+        db: AsyncSession,
+        bank_schema: BankPartialUpdateSchema,
+        bank: Bank,
+    ) -> Bank:
+        new_data = bank_schema.model_dump(exclude_unset=True)
+        try:
+            for key, value in new_data.items():
+                setattr(bank, key, value)
+
+            # db.add(bank)
+            await db.commit()
+            return bank
+        except IntegrityError as e:
+            await db.rollback()
+            if "unique constraint" in str(e).lower():
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail={
+                        "name": f'bank with name \'{new_data["name"]}\' already exists'
+                    },
+                )
+
+    @staticmethod
+    async def delete_bank(db: AsyncSession, bank: Bank) -> None:
+        await db.delete(bank)
+        await db.commit()
+        return None

@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import Annotated
 
-from sqlalchemy import String, Text, ForeignKey, CheckConstraint, text
+from sqlalchemy import String, Text, ForeignKey, CheckConstraint, text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from src.database import Base
 from uuid import uuid4, UUID
@@ -45,6 +45,10 @@ class BankUserAssociation(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("user.id"))
     bank_id: Mapped[int] = mapped_column(ForeignKey("bank.id"))
 
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "bank_id", name="unique_user_bank_combination"),
+    )
     def __repr__(self) -> str:
         return f"<BankUserAssociation: {self.id}"
 
