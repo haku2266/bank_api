@@ -64,6 +64,7 @@ class UserListSchema(BaseModel):
 
 
 class UserPartialUpdateSchema(BaseModel):
+
     name: str | None = Field(max_length=100, default=None)
     email: EmailStr | None = None
     phone_number: str | None = Field(

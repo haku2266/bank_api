@@ -59,8 +59,9 @@ class Teller(Base):
     bank_id: Mapped[int] = mapped_column(ForeignKey("bank.id"))
     user_id: Mapped[int] = mapped_column(ForeignKey("user.id"), unique=True)
 
-    bank: Mapped['Bank'] = relationship(back_populates="tellers")
-    user: Mapped['User'] = relationship(back_populates="teller")
+    bank: Mapped["Bank"] = relationship(back_populates="tellers")
+    user: Mapped["User"] = relationship(back_populates="teller")
+
 
 class Deposit(Base):
     __tablename__ = "deposit"
@@ -133,6 +134,7 @@ class LoanType(Base):
     created_at: Mapped[created_at]
 
     bank: Mapped["Bank"] = relationship(back_populates="loan_types")
+    loans: Mapped[list["Loan"]] = relationship(back_populates="loan_type")
 
     __table_args__ = (
         CheckConstraint(
@@ -152,16 +154,18 @@ class LoanType(Base):
 class Loan(Base):
     __tablename__ = "loan"
     id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("user.id"))
     account_id: Mapped[int] = mapped_column(
         ForeignKey("account.id", ondelete="RESTRICT")
     )
-    amount_out: Mapped[int]
-    amount_in: Mapped[int | None] = mapped_column(default=0)
-
-    loan_type: Mapped["LoanType"] = mapped_column(
+    loan_type_id: Mapped[int] = mapped_column(
         ForeignKey("loan_type.id", ondelete="RESTRICT")
     )
+
+    amount_out: Mapped[int]
+    amount_in: Mapped[int | None] = mapped_column(default=0)
+    amount_expected: Mapped[float | None] = mapped_column(default=None)
+
+    is_covered: Mapped[bool | None] = mapped_column(default=False)
     is_expired: Mapped[bool | None] = mapped_column(default=False)
     created_at: Mapped[created_at]
     expired_at: Mapped[datetime]
@@ -169,15 +173,14 @@ class Loan(Base):
     compensations: Mapped[list["LoanCompensation"] | None] = relationship(
         back_populates="loan"
     )
-    user: Mapped["User"] = relationship(back_populates="loans")
     account: Mapped["Account"] = relationship(back_populates="loans")
+    loan_type: Mapped["LoanType"] = relationship(back_populates="loans")
 
     __table_args__ = (
         CheckConstraint(
             "amount_out BETWEEN 100000 AND 5000000",
             name="check_amount_out_between_range",
         ),
-        CheckConstraint("amount_in > 0", name="check_amount_in_positive"),
     )
 
     def __repr__(self) -> str:
@@ -195,8 +198,8 @@ class LoanCompensation(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "amount > 100000",
-            name="check_d_amount_gt_100k",
+            "amount > 0",
+            name="check_d_amount_gt_0",
         ),
     )
 

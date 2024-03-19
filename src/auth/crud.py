@@ -92,3 +92,6 @@ class UserCRUD:
         await db.delete(user)
         await db.commit()
         return None
+
+    # @staticmethod
+    # async def list_user_accounts(db: AsyncSession)

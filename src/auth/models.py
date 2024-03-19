@@ -51,7 +51,6 @@ class User(Base):
         back_populates="users",
     )
     accounts: Mapped[list["Account"]] = relationship(back_populates="user")
-    loans: Mapped[list["Loan"]] = relationship(back_populates="user")
 
     __table_args__ = (
         UniqueConstraint(
