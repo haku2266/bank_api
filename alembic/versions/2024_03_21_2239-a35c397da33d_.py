@@ -1,8 +1,8 @@
 """empty message
 
-Revision ID: cce61071f8f9
+Revision ID: a35c397da33d
 Revises: 
-Create Date: 2024-03-18 00:31:27.030761
+Create Date: 2024-03-21 22:39:35.042913
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'cce61071f8f9'
+revision: str = 'a35c397da33d'
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -93,19 +93,18 @@ def upgrade() -> None:
     )
     op.create_table('loan',
     sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('user_id', sa.Integer(), nullable=False),
     sa.Column('account_id', sa.Integer(), nullable=False),
+    sa.Column('loan_type_id', sa.Integer(), nullable=False),
     sa.Column('amount_out', sa.Integer(), nullable=False),
     sa.Column('amount_in', sa.Integer(), nullable=True),
-    sa.Column('loan_type', sa.Integer(), nullable=False),
+    sa.Column('amount_expected', sa.Float(), nullable=True),
+    sa.Column('is_covered', sa.Boolean(), nullable=True),
     sa.Column('is_expired', sa.Boolean(), nullable=True),
     sa.Column('created_at', sa.DateTime(), server_default=sa.text("TIMEZONE('utc', now())"), nullable=False),
     sa.Column('expired_at', sa.DateTime(), nullable=False),
-    sa.CheckConstraint('amount_in > 0', name='check_amount_in_positive'),
     sa.CheckConstraint('amount_out BETWEEN 100000 AND 5000000', name='check_amount_out_between_range'),
     sa.ForeignKeyConstraint(['account_id'], ['account.id'], ondelete='RESTRICT'),
-    sa.ForeignKeyConstraint(['loan_type'], ['loan_type.id'], ondelete='RESTRICT'),
-    sa.ForeignKeyConstraint(['user_id'], ['user.id'], ),
+    sa.ForeignKeyConstraint(['loan_type_id'], ['loan_type.id'], ondelete='RESTRICT'),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('withdraw',
@@ -122,7 +121,7 @@ def upgrade() -> None:
     sa.Column('amount', sa.Integer(), nullable=False),
     sa.Column('loan_id', sa.Integer(), nullable=False),
     sa.Column('created_at', sa.DateTime(), server_default=sa.text("TIMEZONE('utc', now())"), nullable=False),
-    sa.CheckConstraint('amount > 100000', name='check_d_amount_gt_100k'),
+    sa.CheckConstraint('amount > 0', name='check_d_amount_gt_0'),
     sa.ForeignKeyConstraint(['loan_id'], ['loan.id'], ondelete='RESTRICT'),
     sa.PrimaryKeyConstraint('id')
     )

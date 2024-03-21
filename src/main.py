@@ -4,11 +4,17 @@ from fastapi.exceptions import RequestValidationError
 import fastapi.openapi.utils as fu
 from src.auth import routers as auth_routers
 from src.bank import routers as bank_routers
+from src.account import routers as account_routers
+from src.teller import routers as teller_routers
+from src.loan import routers as loan_routers
 
 app = FastAPI()
 
 app.include_router(auth_routers.router)
 app.include_router(bank_routers.router)
+app.include_router(account_routers.router)
+app.include_router(teller_routers.router)
+app.include_router(loan_routers.router)
 
 
 @app.exception_handler(RequestValidationError)
