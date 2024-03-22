@@ -103,17 +103,23 @@ class AccountCRUD:
         try:
             new_withdraw = Deposit(**data)
             diff = data["amount"] - account.money
-            if diff > 0:
+            if account.money == 0:
                 raise HTTPException(
-                    detail={"amount": f"it needs to be up to {diff}"},
                     status_code=status.HTTP_400_BAD_REQUEST,
+                    detail={"message": "the account has no money"},
                 )
-            account.money -= data["amount"]
+            elif diff > 0:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail={"amount": "it needs to be up to {}".format(account.money)},
+                )
+            else:
+                account.money -= data["amount"]
 
-            db.add(new_withdraw)
-            await db.commit()
+                db.add(new_withdraw)
+                await db.commit()
 
-            return new_withdraw
+                return new_withdraw
         except Exception as e:
             if "check_w_amount_between_range" in str(e).lower():
                 raise HTTPException(

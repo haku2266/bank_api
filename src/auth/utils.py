@@ -1,7 +1,20 @@
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+
 import bcrypt
 from src.config import settings
 import datetime
 import jwt
+
+
+import random
+import string
+import smtplib
+import ssl
+from email.message import EmailMessage
+import redis
+
+redis_client = redis.StrictRedis(host="localhost", port=6379, db=0)
 
 
 # hashing password
@@ -58,3 +71,62 @@ def decode_jwt(
     decoded = jwt.decode(jwt_token, public_key, algorithms=[algorith])
 
     return decoded
+
+
+def generate_validation_code():
+    return "".join(random.choices(string.ascii_uppercase + string.digits, k=6))
+
+
+def send_email(email, validation_code):
+    smtp_server = "smtp.gmail.com"
+    port = 465
+    password = "cqhvezlrvpgcbsnu"
+
+    sender_email = "hamidakhtamov1@gmail.com"
+    receiver_email = email
+
+    message = MIMEMultipart("alternative")
+    message["Subject"] = "Verification Code"
+    message["From"] = sender_email
+    message["To"] = receiver_email
+
+    # Create the plain-text and HTML version of your message
+    text = """\
+    Hi,
+    How are you?
+    We are really happy that you become the member of your family!"""
+    html = f"""\
+    <html>
+      <body>
+        <p>Hi,<br>
+           How are you?<br>
+           This is your verification code: <i><b>{validation_code}</b></i>
+        </p>
+      </body>
+    </html>
+    """
+
+    # Turn these into plain/html MIMEText objects
+    part1 = MIMEText(text, "plain")
+    part2 = MIMEText(html, "html")
+
+    # Add HTML/plain-text parts to MIMEMultipart message
+    # The email client will try to render the last part first
+    message.attach(part1)
+    message.attach(part2)
+
+    # Create secure connection with server and send email
+    context = ssl.create_default_context()
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
+        server.login(sender_email, password)
+        server.sendmail(sender_email, receiver_email, message.as_string())
+
+
+# Store validation code in Redis with expiration time
+def store_validation_code(email, validation_code, expiration_time):
+    redis_client.setex(email, expiration_time, validation_code)
+
+
+# Retrieve validation code from Redis
+def retrieve_validation_code(email):
+    return redis_client.get(email)

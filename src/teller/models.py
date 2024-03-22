@@ -30,3 +30,6 @@ class Teller(Base):
 
     bank: Mapped["Bank"] = relationship(back_populates="tellers")
     user: Mapped["User"] = relationship(back_populates="teller")
+
+    def __repr__(self):
+        return f"<Teller:{self.id}>"
