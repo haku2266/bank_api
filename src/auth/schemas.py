@@ -108,3 +108,9 @@ class UserPartialUpdateSchema(BaseModel):
                 detail={"phone_number": "phone number is invalid"},
             )
         return clean_value
+
+
+class TokenInfo(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str | None = "Bearer"

@@ -34,6 +34,7 @@ class TellerCRUD:
     @staticmethod
     async def add_teller_to_bank(db: AsyncSession, bank: Bank, user: User) -> User:
         new_teller = Teller(**{"bank_id": bank.id, "user_id": user.id})
+        user.is_teller = True
         db.add(new_teller)
         await db.commit()
         return new_teller.user

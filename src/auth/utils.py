@@ -11,7 +11,6 @@ import random
 import string
 import smtplib
 import ssl
-from email.message import EmailMessage
 import redis
 
 redis_client = redis.StrictRedis(host="localhost", port=6379, db=0)
@@ -77,7 +76,7 @@ def generate_validation_code():
     return "".join(random.choices(string.ascii_uppercase + string.digits, k=6))
 
 
-def send_email(email, validation_code):
+def send_email(email, validation_code, name):
     smtp_server = "smtp.gmail.com"
     port = 465
     password = "cqhvezlrvpgcbsnu"
@@ -93,14 +92,14 @@ def send_email(email, validation_code):
     # Create the plain-text and HTML version of your message
     text = """\
     Hi,
-    How are you?
     We are really happy that you become the member of your family!"""
     html = f"""\
     <html>
       <body>
-        <p>Hi,<br>
-           How are you?<br>
-           This is your verification code: <i><b>{validation_code}</b></i>
+        <h2 style="text-align: center; margin: 0 auto;">Hi, {name}!</h2>
+        <h4 style="text-align: center; margin: 0 auto;">We are really happy that you become the member of your family!?</h4>
+        <p style="text-align: center; margin: 0 auto;">This is your verification code: <b>{validation_code}</b><br>
+        You have <b>10</b> minutes to verify your account, then the code will be invalid.
         </p>
       </body>
     </html>
@@ -130,3 +129,5 @@ def store_validation_code(email, validation_code, expiration_time):
 # Retrieve validation code from Redis
 def retrieve_validation_code(email):
     return redis_client.get(email)
+
+
