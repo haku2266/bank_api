@@ -34,6 +34,14 @@ class DepositCreatedListSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class DepositListSchema(BaseModel):
+    id: int
+    amount: int
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class WithdrawCreateSchema(BaseModel):
     amount: int = Field(gt=100_000, lt=3_000_000)
 
@@ -45,6 +53,14 @@ class WithdrawCreatedListSchema(BaseModel):
     id: int
     amount: int
     account_id: int
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class WithdrawListSchema(BaseModel):
+    id: int
+    amount: int
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

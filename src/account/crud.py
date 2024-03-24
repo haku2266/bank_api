@@ -4,7 +4,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from src.account.models import Deposit, Account
+from src.account.models import Deposit, Account, Withdraw
 from src.account.schemas import (
     AccountCreateSchema,
     WithdrawCreateSchema,
@@ -101,7 +101,7 @@ class AccountCRUD:
         data["account_id"] = account.id
 
         try:
-            new_withdraw = Deposit(**data)
+            new_withdraw = Withdraw(**data)
             diff = data["amount"] - account.money
             if account.money == 0:
                 raise HTTPException(

@@ -13,13 +13,17 @@ if TYPE_CHECKING:
     from src.bank.models import Bank
 
 created_at = Annotated[
-    datetime, mapped_column(server_default=text("TIMEZONE('utc', now())"))
+    datetime,
+    mapped_column(
+        default=datetime.now(), server_default=text("TIMEZONE('utc', now())")
+    ),
 ]
 updated_at = Annotated[
     datetime,
     mapped_column(
+        default=datetime.now(),
         server_default=text("TIMEZONE('utc', now())"),
-        onupdate=datetime.now(tz=timezone.utc),
+        onupdate=datetime.now(),
     ),
 ]
 
@@ -65,8 +69,9 @@ class Loan(Base):
     amount_in: Mapped[int | None] = mapped_column(default=0)
     amount_expected: Mapped[float | None] = mapped_column(default=None)
 
-    is_covered: Mapped[bool | None] = mapped_column(default=False)
-    is_expired: Mapped[bool | None] = mapped_column(default=False)
+    is_approved: Mapped[bool | None] = mapped_column(default=False, server_default='false')
+    is_covered: Mapped[bool | None] = mapped_column(default=False, server_default='false')
+    is_expired: Mapped[bool | None] = mapped_column(default=False, server_default='false')
     created_at: Mapped[created_at]
     expired_at: Mapped[datetime]
 

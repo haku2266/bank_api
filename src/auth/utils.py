@@ -1,5 +1,6 @@
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from fastapi import HTTPException
 
 import bcrypt
 from src.config import settings
@@ -114,11 +115,14 @@ def send_email(email, validation_code, name):
     message.attach(part1)
     message.attach(part2)
 
-    # Create secure connection with server and send email
-    context = ssl.create_default_context()
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
-        server.login(sender_email, password)
-        server.sendmail(sender_email, receiver_email, message.as_string())
+    try:
+        # Create secure connection with server and send email
+        context = ssl.create_default_context()
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
+            server.login(sender_email, password)
+            server.sendmail(sender_email, receiver_email, message.as_string())
+    except TimeoutError:
+        raise HTTPException(status_code=400, detail="Inconsistent network")
 
 
 # Store validation code in Redis with expiration time

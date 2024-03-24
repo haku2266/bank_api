@@ -13,13 +13,17 @@ if TYPE_CHECKING:
 
 
 created_at = Annotated[
-    datetime, mapped_column(server_default=text("TIMEZONE('utc', now())"))
+    datetime,
+    mapped_column(
+        default=datetime.now(), server_default=text("TIMEZONE('utc', now())")
+    ),
 ]
 updated_at = Annotated[
     datetime,
     mapped_column(
+        default=datetime.now(),
         server_default=text("TIMEZONE('utc', now())"),
-        onupdate=datetime.now(tz=timezone.utc),
+        onupdate=datetime.now(),
     ),
 ]
 
@@ -87,4 +91,3 @@ class Account(Base):
 
     def __repr__(self) -> str:
         return f"<Account:{self.id}~Bank:{self.bank_id}>"
-

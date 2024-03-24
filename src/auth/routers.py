@@ -1,6 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Form, Body
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy import select, and_
 from sqlalchemy.orm import selectinload, joinedload
 
 from fastapi.security import (
@@ -9,7 +12,19 @@ from fastapi.security import (
 )
 from jwt.exceptions import ExpiredSignatureError, DecodeError
 
-
+from src.account.crud import AccountCRUD
+from src.account.dependencies import retrieve_account_dependency
+from src.account.models import Account, Deposit, Withdraw
+from src.account.schemas import (
+    AccountListSchema,
+    AccountCreateSchema,
+    DepositCreateSchema,
+    DepositCreatedListSchema,
+    DepositListSchema,
+    WithdrawCreateSchema,
+    WithdrawCreatedListSchema,
+    WithdrawListSchema,
+)
 from src.auth.models import User
 from src.auth.schemas import (
     UserCreateSchema,
@@ -27,10 +42,14 @@ from src.auth.utils import (
     decode_jwt,
 )
 from src.auth.crud import UserCRUD
+from src.bank.dependencies import retrieve_bank_with_users_dependency
 from src.bank.models import Bank, BankUserAssociation
 from src.bank.schemas import BankListSchema, BankCreatedRetrieve
 from src.database import get_async_session
 from src.auth.dependencies import retrieve_user_dependency, validate_user
+from src.loan.crud import LoanCRUD
+from src.loan.models import Loan
+from src.loan.schemas import LoanListSchema, LoanCreateSchema
 
 router = APIRouter(prefix="/user")
 
@@ -139,6 +158,90 @@ def get_super_user(user: User = Depends(get_active_auth_user)) -> User:
     )
 
 
+async def bank_id_that_is_relevant(
+    bank_id: UUID,
+    user: User = Depends(get_active_auth_user),
+    db: AsyncSession = Depends(get_async_session),
+) -> UUID:
+    query = select(BankUserAssociation).where(
+        and_(
+            BankUserAssociation.user_id == user.id,
+            BankUserAssociation.bank_id == bank_id,
+        ),
+    )
+    result = await db.scalar(query)
+    if result:
+        return bank_id
+    raise HTTPException(
+        status_code=404,
+        detail="Either the bank doesn't exist or the user is not a member of the bank",
+    )
+
+
+async def account_that_is_relevant(
+    account_id: int,
+    user: User = Depends(get_active_auth_user),
+    db: AsyncSession = Depends(get_async_session),
+) -> Account:
+    query = select(Account).where(
+        and_(Account.user_id == user.id), Account.id == account_id
+    )
+
+    result = await db.scalar(query)
+
+    if not result:
+        raise HTTPException(
+            status_code=404,
+            detail="Either the account doesn't exist or it doen't belong to this user",
+        )
+
+    return result
+
+
+async def deposit_that_is_relevant(
+    deposit_id: int,
+    user: User = Depends(get_active_auth_user),
+    db: AsyncSession = Depends(get_async_session),
+):
+    query = (
+        select(Deposit)
+        .select_from(Deposit)
+        .join(Account, onclause=Account.id == Deposit.account_id)
+        .where(and_(Account.user_id == user.id, Deposit.id == deposit_id))
+    )
+
+    result = await db.scalar(query)
+
+    if not result:
+        raise HTTPException(
+            status_code=404,
+            detail="Either the deposit doesn't exist or belong to this user",
+        )
+    return result
+
+
+async def withdraw_that_is_relevant(
+    withdraw_id: int,
+    user: User = Depends(get_active_auth_user),
+    db: AsyncSession = Depends(get_async_session),
+):
+    query = (
+        select(Withdraw)
+        .select_from(Withdraw)
+        .join(Account, onclause=Account.id == Withdraw.account_id)
+        .where(and_(Account.user_id == user.id, Withdraw.id == withdraw_id))
+    )
+
+    result = await db.scalar(query)
+
+    if not result:
+        raise HTTPException(
+            status_code=404,
+            detail="Either the withdraw doesn't exist or belong to this user",
+        )
+    return result
+
+
 @router.post("/create/", status_code=201, tags=["User"])
 async def create_user(
     user_schema: UserCreateSchema, db: AsyncSession = Depends(get_async_session)
@@ -221,120 +324,276 @@ async def list_banks_user_me(
     user: User = Depends(get_active_auth_user),
     db: AsyncSession = Depends(get_async_session),
 ):
-    # return {"data": UserListSchema.model_validate(user, from_attributes=True)}
     query = (
-        select(
-           Bank
-        )
+        select(Bank.id, Bank.name, Bank.location)
         .select_from(Bank)
-        .options(joinedload(Bank.loan_types))
         .join(BankUserAssociation, onclause=Bank.id == BankUserAssociation.bank_id)
         .join(User, onclause=User.id == user.id)
     )
 
-    banks = (await db.execute(query)).scalars().unique().all()
+    banks = (await db.execute(query)).all()
 
     return {
-        "data": [BankListSchema.model_validate(bank, from_attributes=True) for bank in banks],
+        "data": [
+            BankCreatedRetrieve.model_validate(bank, from_attributes=True)
+            for bank in banks
+        ],
     }
 
 
 @router.get("/me/banks/{bank_id}/detail/", tags=["User-Me-Bank"])
-async def detail_bank_user_me():
-    pass
+async def detail_bank_user_me(
+    bank_id: UUID = Depends(bank_id_that_is_relevant),
+    user: User = Depends(get_active_auth_user),
+    db: AsyncSession = Depends(get_async_session),
+):
+    bank = (
+        await db.execute(
+            select(Bank).options(joinedload(Bank.loan_types)).where(Bank.id == bank_id)
+        )
+    ).scalar()
+
+    return {"data": BankListSchema.model_validate(bank, from_attributes=True)}
 
 
-@router.post("/me/banks/register/", tags=["User-Me-Bank"])
-async def register_bank_user_me():
-    pass
+@router.post("/me/banks/{bank_id}/register/", tags=["User-Me-Bank"])
+async def register_bank_user_me(
+    bank: Bank = Depends(retrieve_bank_with_users_dependency),
+    user: User = Depends(get_active_auth_user),
+    db: AsyncSession = Depends(get_async_session),
+):
+    try:
+        bank.users.append(user)
+        await db.commit()
+    except IntegrityError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="You are  already registered to this bank",
+        )
+
+    return {
+        "message": "User added successfully",
+        "data": UserListSchema.model_validate(user, from_attributes=True),
+    }
 
 
-@router.delete("/me/banks/{bank_id}/delete/", tags=["User-Me-Bank"])
-async def delete_bank_user_me():
-    pass
+@router.delete("/me/banks/{bank_id}/delete/", status_code=201, tags=["User-Me-Bank"])
+async def delete_bank_user_me(
+    bank: Bank = Depends(retrieve_bank_with_users_dependency),
+    user: User = Depends(get_active_auth_user),
+    db: AsyncSession = Depends(get_async_session),
+):
+    try:
+        bank.users.remove(user)
+        await db.commit()
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"you are not registered in this bank",
+        )
 
 
 @router.get("/me/banks/{bank_id}/accounts/list/", tags=["User-Me-Account"])
-async def list_accounts_user_me():
-    pass
+async def list_accounts_user_me(
+    bank_id: UUID,
+    user: User = Depends(get_active_auth_user),
+    db: AsyncSession = Depends(get_async_session),
+):
+    query = select(Account).where(
+        and_(Account.bank_id == bank_id, Account.user_id == user.id)
+    )
+
+    result = await db.scalar(query)
+
+    return {"data": AccountListSchema.model_validate(result, from_attributes=True)}
 
 
 @router.post("/me/banks/{bank_id}/accounts/create/", tags=["User-Me-Account"])
-async def create_account_user_me():
-    pass
+async def create_account_user_me(
+    money_schema: DepositCreateSchema,
+    bank_id: UUID = Depends(bank_id_that_is_relevant),
+    user: User = Depends(get_active_auth_user),
+    db: AsyncSession = Depends(get_async_session),
+):
 
+    account_schema = AccountCreateSchema(user_id=user.id, money=money_schema.model_dump()["amount"])
 
-@router.get("/me/accounts/{account_id}/detail/", tags=["User-Me-Account"])
-async def detail_account_user_me():
-    pass
+    result = await AccountCRUD.create_account_in_bank(
+        account_schema=account_schema, db=db, bank_id=bank_id
+    )
+
+    return {
+        "message": "Account Created Successfully",
+        "data": AccountListSchema.model_validate(result, from_attributes=True),
+    }
 
 
 @router.post(
     "/me/accounts/{account_id}/deposits/create/", tags=["User-Me-Account-Deposit"]
 )
-async def create_deposit_in_account():
-    pass
+async def create_deposit_in_account(
+    deposit_schema: DepositCreateSchema,
+    account: Account = Depends(account_that_is_relevant),
+    db: AsyncSession = Depends(get_async_session),
+):
+    result = await AccountCRUD.create_deposit_in_account(
+        db=db,
+        account=account,
+        deposit_schema=deposit_schema,
+    )
+
+    return {
+        "message": "Deposit created successfully",
+        "data": DepositCreatedListSchema.model_validate(result, from_attributes=True),
+    }
 
 
 @router.get(
     "/me/accounts/{account_id}/deposits/list/", tags=["User-Me-Account-Deposit"]
 )
-async def list_deposit_in_account():
-    pass
+async def list_deposit_in_account(
+    account: Account = Depends(account_that_is_relevant),
+    db: AsyncSession = Depends(get_async_session),
+):
+    query = select(Deposit).where(Deposit.account_id == account.id)
+    result = await db.scalars(query)
+
+    return {
+        "data": [
+            DepositListSchema.model_validate(i, from_attributes=True) for i in result
+        ]
+    }
 
 
-@router.get("/me/deposits/{deposit_id}/", tags=["User-Me-Account-Deposit"])
-async def retrieve_deposit_in_account():
-    pass
+@router.get("/me/deposits/{deposit_id}/detail/", tags=["User-Me-Account-Deposit"])
+async def retrieve_deposit_in_account(
+    deposit: Deposit = Depends(deposit_that_is_relevant),
+    db: AsyncSession = Depends(get_async_session),
+):
+
+    return {"data": DepositListSchema.model_validate(deposit, from_attributes=True)}
 
 
 @router.post(
     "/me/accounts/{account_id}/withdraws/create/", tags=["User-Me-Account-Withdraw"]
 )
-async def create_withdraw_in_account():
-    pass
+async def create_withdraw_in_account(
+    withdraw_schema: WithdrawCreateSchema,
+    account: Account = Depends(account_that_is_relevant),
+    db: AsyncSession = Depends(get_async_session),
+):
+    result = await AccountCRUD.create_withdraw_in_account(
+        db=db,
+        account=account,
+        withdraw_schema=withdraw_schema,
+    )
+
+    return {
+        "message": "Withdraw created successfully",
+        "data": WithdrawCreatedListSchema.model_validate(result, from_attributes=True),
+    }
 
 
 @router.get(
     "/me/accounts/{account_id}/withdraws/list/", tags=["User-Me-Account-Withdraw"]
 )
-async def list_withdraw_in_account():
-    pass
+async def list_withdraw_in_account(
+    account: Account = Depends(account_that_is_relevant),
+    db: AsyncSession = Depends(get_async_session),
+):
+    query = select(Withdraw).where(Withdraw.account_id == account.id)
+    result = await db.scalars(query)
+    print(result)
+
+    return {
+        "data": [
+            WithdrawListSchema.model_validate(i, from_attributes=True) for i in result
+        ]
+    }
 
 
-@router.get("/me/withdraws/{withdraw_id}/", tags=["User-Me-Account-Withdraw"])
-async def retrieve_withdraw_in_account():
-    pass
+@router.get("/me/withdraws/{withdraw_id}/detail/", tags=["User-Me-Account-Withdraw"])
+async def retrieve_withdraw_in_account(
+    withdraw: Deposit = Depends(withdraw_that_is_relevant),
+    db: AsyncSession = Depends(get_async_session),
+):
 
-
-@router.delete("/me/accounts/{account_id}/delete/", tags=["User-Me-Account"])
-async def delete_account_user_me():
-    pass
+    return {"data": WithdrawListSchema.model_validate(withdraw, from_attributes=True)}
 
 
 @router.patch("/me/update/", tags=["User-Me"])
-async def update_user_me():
-    pass
+async def update_user_me(
+    user_schema: UserPartialUpdateSchema,
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(get_active_auth_user),
+):
+    result = await UserCRUD.partial_update_user(
+        db=db, user_schema=user_schema, user=user
+    )
+    return {"data": UserListSchema.model_validate(result, from_attributes=True)}
 
 
-@router.delete("/me/delete/", tags=["User-Me"])
-async def delete_user_me():
-    pass
+@router.delete("/me/delete/", status_code=201, tags=["User-Me"])
+async def delete_user_me(
+    user: User = Depends(get_active_auth_user),
+    db: AsyncSession = Depends(get_async_session),
+):
+    result = await UserCRUD.delete_user(db=db, user=user)
+    return None
 
 
 @router.get("/me/loans/", tags=["User-Me-Loan"])
-async def list_loans_user_me():
-    pass
+async def list_loans_user_me(
+    user: User = Depends(get_active_auth_user),
+    db: AsyncSession = Depends(get_async_session),
+):
+    query = (
+        select(Loan)
+        .select_from(Loan)
+        .where(
+            Loan.account_id.in_(
+                select(Account.id)
+                .select_from(Account)
+                .where(Account.user_id == user.id)
+            )
+        )
+    )
+    result = await db.scalars(query)
+    print(result)
+
+    return {
+        "data": [LoanListSchema.model_validate(i, from_attributes=True) for i in result]
+    }
 
 
 @router.get("/me/{account_id}/loans/list/", tags=["User-Me-Loan"])
-async def list_loans_in_account_user_me():
-    pass
+async def list_loans_in_account_user_me(
+    account: Account = Depends(account_that_is_relevant),
+    db: AsyncSession = Depends(get_async_session),
+):
+    query = select(Loan).where(Loan.account_id == account.id)
+
+    result = await db.scalars(query)
+
+    return {
+        "data": [LoanListSchema.model_validate(i, from_attributes=True) for i in result]
+    }
 
 
 @router.post("/me/{account_id}/loans/apply/", tags=["User-Me-Loan"])
-async def apply_for_loan_in_account_user_me():
-    pass
+async def apply_for_loan_in_account_user_me(
+    loan_schema: LoanCreateSchema,
+    account: Account = Depends(account_that_is_relevant),
+    db: AsyncSession = Depends(get_async_session),
+):
+    result = await LoanCRUD.create_loan_in_account(
+        db=db, loan_schema=loan_schema, account_id=account.id
+    )
+
+    return {
+        "message": "Loan issued successfully",
+        "data": LoanListSchema.model_validate(result, from_attributes=True),
+    }
 
 
 @router.get("/me/loans/{loan_id}/", tags=["User-Me-Loan"])
@@ -400,6 +659,11 @@ async def validate_activation_code(
 ):
     query = select(User).where(User.email == email)
     user = await db.scalar(query)
+
+    if not user:
+        raise HTTPException(
+            status_code=404, detail="User is not found. Check credentials"
+        )
 
     if not user.is_active:
         stored_code = retrieve_validation_code(email)
