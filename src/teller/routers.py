@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 
 from src.auth.models import User
+from src.auth.routers import get_super_user
 from src.auth.schemas import UserListSchema
 from src.bank.dependencies import retrieve_bank_dependency
 from src.database import get_async_session
@@ -19,6 +20,7 @@ router = APIRouter(prefix="/teller")
 async def list_tellers_in_bank(
     bank: Bank = Depends(retrieve_bank_dependency),
     db: AsyncSession = Depends(get_async_session),
+    super_user: User = Depends(get_super_user),
 ):
     result = await TellerCRUD.list_tellers_of_bank(db=db, bank=bank)
     print(result)
@@ -32,6 +34,7 @@ async def add_teller_to_bank(
     bank: Bank = Depends(retrieve_bank_dependency),
     user: User = Depends(retrieve_user_dependency),
     db: AsyncSession = Depends(get_async_session),
+    super_user: User = Depends(get_super_user),
 ):
     try:
         result = await TellerCRUD.add_teller_to_bank(db=db, bank=bank, user=user)

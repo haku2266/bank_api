@@ -1,7 +1,4 @@
-from uuid import UUID
-
 from fastapi import HTTPException, status, Depends, Path
-from typing import Annotated
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database import get_async_session

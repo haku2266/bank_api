@@ -1,10 +1,10 @@
-from fastapi import Depends, HTTPException, status
+from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy import select, func
+from sqlalchemy import select
 from sqlalchemy.orm import aliased
 
-from src.auth.schemas import UserListSchema, UserPartialUpdateSchema
+from src.auth.schemas import UserPartialUpdateSchema
 from src.auth.models import User
 
 

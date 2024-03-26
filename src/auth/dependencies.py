@@ -1,9 +1,10 @@
 from fastapi import Path, Depends, HTTPException, status, Form
+from fastapi.security import HTTPAuthorizationCredentials
 from typing import Annotated
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from src.auth.utils import validate_password
+from src.auth.utils import validate_password, decode_jwt
 from src.database import get_async_session
 from src.auth.models import User
 from src.auth.crud import UserCRUD
@@ -50,3 +51,4 @@ async def validate_user(
             raise HTTPException(status_code=403, detail="user inactive")
 
         return user
+

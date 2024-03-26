@@ -99,7 +99,7 @@ def send_email(email, validation_code, name):
       <body>
         <h2 style="text-align: center; margin: 0 auto;">Hi, {name}!</h2>
         <h4 style="text-align: center; margin: 0 auto;">We are really happy that you become the member of your family!?</h4>
-        <p style="text-align: center; margin: 0 auto;">This is your verification code: <b>{validation_code}</b><br>
+        <p style="text-align: center; margin: 0 auto;">This is your verification code<b>{validation_code}</b><br>
         You have <b>10</b> minutes to verify your account, then the code will be invalid.
         </p>
       </body>

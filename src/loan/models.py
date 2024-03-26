@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Annotated
 
 from sqlalchemy import String, ForeignKey, CheckConstraint, text
@@ -69,7 +69,7 @@ class Loan(Base):
     amount_in: Mapped[int | None] = mapped_column(default=0)
     amount_expected: Mapped[float | None] = mapped_column(default=None)
 
-    is_approved: Mapped[bool | None] = mapped_column(default=False, server_default='false')
+    # is_approved: Mapped[bool | None] = mapped_column(default=False, server_default='false')
     is_covered: Mapped[bool | None] = mapped_column(default=False, server_default='false')
     is_expired: Mapped[bool | None] = mapped_column(default=False, server_default='false')
     created_at: Mapped[created_at]

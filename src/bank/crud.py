@@ -4,7 +4,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import select
-from sqlalchemy.orm import aliased, selectinload, joinedload
+from sqlalchemy.orm import selectinload, joinedload
 
 from src.auth.models import User
 from src.bank.schemas import (

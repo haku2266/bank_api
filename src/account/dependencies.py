@@ -3,7 +3,10 @@ from uuid import UUID
 from fastapi import HTTPException, status, Depends, Path
 from typing import Annotated
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, and_
 
+from src.account.models import Deposit, Withdraw
+from src.auth.models import User
 from src.database import get_async_session
 from src.account.crud import AccountCRUD
 from src.bank.models import Bank, Account

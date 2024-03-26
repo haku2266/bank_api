@@ -1,13 +1,15 @@
 from typing import Annotated
 from typing_extensions import TYPE_CHECKING
-from sqlalchemy import String, UniqueConstraint, Text, text, Boolean, LargeBinary
-from datetime import datetime, timezone
+from sqlalchemy import String, UniqueConstraint, text, Boolean, LargeBinary
+from datetime import datetime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.database import Base
 
 if TYPE_CHECKING:
-    from src.bank.models import Bank, Account, Loan, Teller
+    from src.bank.models import Bank
+    from src.account.models import Account
+    from src.teller.models import Teller
 
 created_at = Annotated[
     datetime,
