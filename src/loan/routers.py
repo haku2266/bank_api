@@ -4,7 +4,7 @@ from sqlalchemy import select
 
 from src.account.routers import account_that_is_relevant
 from src.account.models import Account
-from src.auth.routers import get_active_auth_user, get_teller_auth_user
+from src.auth.routers import get_active_auth_user, get_teller_auth_user, get_super_user
 from src.auth.models import User
 from src.database import get_async_session
 
@@ -28,7 +28,7 @@ router = APIRouter(prefix="/bank")
 async def create_loan_type_in_bank(
     loan_type_schema: LoanTypeCreateSchema,
     db: AsyncSession = Depends(get_async_session),
-    teller: User = Depends(get_teller_auth_user),
+    super_user: User = Depends(get_super_user),
 ):
     result = await LoanCRUD.create_loan_type_in_bank(
         db=db, loan_schema=loan_type_schema

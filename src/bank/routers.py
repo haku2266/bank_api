@@ -29,6 +29,7 @@ from src.auth.routers import (
     retrieve_user_dependency,
     get_active_auth_user,
     get_teller_auth_user,
+    get_super_user
 )
 
 router = APIRouter(prefix="/bank")
@@ -60,7 +61,7 @@ async def bank_id_that_is_relevant(
 async def create_bank(
     bank_schema: BankCreateSchema,
     db: AsyncSession = Depends(get_async_session),
-    teller: User = Depends(get_teller_auth_user),
+    super_user: User = Depends(get_super_user),
 ):
     result = await BankCRUD.create_bank(db=db, bank_schema=bank_schema)
     return {
