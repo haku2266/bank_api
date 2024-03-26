@@ -7,6 +7,7 @@ from fastapi.security import (
 )
 from jwt.exceptions import ExpiredSignatureError, DecodeError
 
+
 from src.auth.models import User
 from src.auth.schemas import (
     UserCreateSchema,
@@ -18,7 +19,6 @@ from src.auth.utils import (
     hash_password,
     generate_validation_code,
     store_validation_code,
-    send_email,
     retrieve_validation_code,
     encode_jwt,
     decode_jwt,
@@ -26,6 +26,8 @@ from src.auth.utils import (
 from src.auth.crud import UserCRUD
 from src.database import get_async_session
 from src.auth.dependencies import retrieve_user_dependency, validate_user
+
+from src.tasks.tasks import send_email
 
 router = APIRouter(prefix="/user")
 
@@ -292,7 +294,7 @@ async def activate_user(
         store_validation_code(
             email_in, validation_code, expiration_time=600
         )  # Set expiration time (in seconds)
-        send_email(email_in, validation_code, name=user.name)
+        send_email.delay(email_in, validation_code, name=user.name)
 
         return {"message": f"Verification code has been sent to {email_in}"}
 

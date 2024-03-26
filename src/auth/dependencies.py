@@ -47,8 +47,8 @@ async def validate_user(
                 detail="incorrect password",
             )
 
-        if not user.is_active:
-            raise HTTPException(status_code=403, detail="user inactive")
+        # if not user.is_active:
+        #     raise HTTPException(status_code=403, detail="user inactive")
 
         return user
 

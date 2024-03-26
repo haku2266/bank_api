@@ -18,6 +18,11 @@ class Settings(BaseSettings):
     DB_PASSWORD: str
     DB_HOST: str
     DB_PORT: int
+    EMAIL_USER: str
+    EMAIL_PASS: str
+    POSTGRES_DB: str
+    POSTGRES_USER: str
+    POSTGRES_PASSWORD: str
     AUTH_JWT: AuthJWT = AuthJWT()
 
     @property

@@ -1,3 +1,4 @@
+import time
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
@@ -5,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import select, and_
 from sqlalchemy.orm import joinedload
+from fastapi_cache.decorator import cache
 
 
 from src.auth.models import User
@@ -68,6 +70,7 @@ async def create_bank(
 
 
 @router.get("/list/", tags=["Bank"])
+@cache(expire=180)
 async def list_banks(
     page: int = Query(default=1, ge=1),
     size: int = Query(default=10, ge=1),
@@ -77,7 +80,7 @@ async def list_banks(
     result = await BankCRUD.list_banks(
         db=db, page=page, size=size, name_i_contains=name_i_contains
     )
-
+    time.sleep(2)
     return {
         "data": [BankListSchema.model_validate(i, from_attributes=True) for i in result]
     }

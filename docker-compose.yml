@@ -1,0 +1,56 @@
+version: "3.8"
+
+services:
+  postgres_db:
+    image: postgres:latest
+    container_name: academy_postgres
+    env_file:
+      - .env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    ports:
+      - "5434:5432"
+  redis_db:
+    image: redis:7.2.4
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_cache:/var/lib/redis/data/
+
+  web:
+    build: .
+    container_name: bank_backend
+    command: [ "uvicorn", "src.main:app", "--host", "0:0:0:0", "--port", "8000", "--reload" ]
+    volumes:
+      - ./:/usr/src/app/
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres_db
+      - redis_db
+
+  celery:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["celery", "-A", "src.tasks.tasks:app worker", "--loglevel", "INFO"]
+    depends_on:
+      - web
+      - redis_db
+
+  flower:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["celery", "-A", "src.tasks.tasks:app", "flower"]
+    depends_on:
+      - redis_db
+      - celery
+    ports:
+      - "5555:5555"
+
+volumes:
+  postgres_data:
+  redis_cache:
