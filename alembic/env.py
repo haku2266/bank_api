@@ -8,15 +8,10 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from alembic import context
 
 from src.auth.models import User  # noqa
-from src.bank.models import (
-    Bank,
-    Account,
-    Deposit,
-    Withdraw,
-    LoanCompensation,
-    Loan,
-    LoanType,
-)
+from src.bank.models import Bank  # noqa
+from src.account.models import Account, Deposit, Withdraw  # noqa
+from src.loan.models import Loan, LoanCompensation, LoanType  # noqa
+from src.teller.models import Teller  # noqa
 from src.config import settings
 from src.database import Base
 

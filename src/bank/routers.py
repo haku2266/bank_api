@@ -1,6 +1,12 @@
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy import select, and_
+from sqlalchemy.orm import joinedload
+
+
 from src.auth.models import User
 from src.auth.schemas import UserListSchema
 from src.database import get_async_session
@@ -10,36 +16,49 @@ from src.bank.schemas import (
     BankCreatedRetrieve,
     BankListSchema,
     BankPartialUpdateSchema,
-    AccountListSchema,
-    AccountCreateSchema,
-    LoanTypeCreateSchema,
-    LoanTypesListSchema,
-    LoanCreateSchema,
-    LoanListSchema,
-    LoanCompensationCreateSchema,
-    LoanCompensationListSchema,
-    DepositCreateSchema,
-    DepositCreatedListSchema,
-    WithdrawCreateSchema,
-    WithdrawCreatedListSchema,
 )
 from src.bank.crud import BankCRUD
-from src.bank.models import Bank, Loan, Account
+from src.bank.models import Bank, BankUserAssociation
 from src.bank.dependencies import (
     retrieve_bank_with_users_dependency,
     retrieve_bank_dependency,
-    retrieve_bank_with_staff_dependency,
-    retrieve_loan_dependency,
-    retrieve_account_dependency,
 )
-from src.auth.dependencies import retrieve_user_dependency
+from src.auth.routers import (
+    retrieve_user_dependency,
+    get_active_auth_user,
+    get_teller_auth_user,
+)
 
 router = APIRouter(prefix="/bank")
 
 
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~PERMISSIONS~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+async def bank_id_that_is_relevant(
+    bank_id: UUID,
+    user: User = Depends(get_active_auth_user),
+    db: AsyncSession = Depends(get_async_session),
+) -> UUID:
+    query = select(BankUserAssociation).where(
+        and_(
+            BankUserAssociation.user_id == user.id,
+            BankUserAssociation.bank_id == bank_id,
+        ),
+    )
+    result = await db.scalar(query)
+    if result:
+        return bank_id
+    raise HTTPException(
+        status_code=404,
+        detail="Either the bank doesn't exist or the user is not a member of the bank",
+    )
+
+
+#  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ROUTERS~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 @router.post("/create/", tags=["Bank"])
 async def create_bank(
-    bank_schema: BankCreateSchema, db: AsyncSession = Depends(get_async_session)
+    bank_schema: BankCreateSchema,
+    db: AsyncSession = Depends(get_async_session),
+    teller: User = Depends(get_teller_auth_user),
 ):
     result = await BankCRUD.create_bank(db=db, bank_schema=bank_schema)
     return {
@@ -74,6 +93,7 @@ async def partial_update_bank(
     bank_schema: BankPartialUpdateSchema,
     bank: Bank = Depends(retrieve_bank_dependency),
     db: AsyncSession = Depends(get_async_session),
+    teller: User = Depends(get_teller_auth_user),
 ):
     result = await BankCRUD.partial_update_bank(
         db=db,
@@ -88,6 +108,7 @@ async def add_user_to_bank(
     bank: Bank = Depends(retrieve_bank_with_users_dependency),
     user: User = Depends(retrieve_user_dependency),
     db: AsyncSession = Depends(get_async_session),
+    teller: User = Depends(get_teller_auth_user),
 ):
     try:
         if user.is_active:
@@ -114,6 +135,7 @@ async def add_user_to_bank(
 async def list_users_in_bank(
     bank: Bank = Depends(retrieve_bank_dependency),
     db: AsyncSession = Depends(get_async_session),
+    teller: User = Depends(get_teller_auth_user),
 ):
     result = await BankCRUD.list_users_of_bank(db=db, bank=bank)
     print(result)
@@ -131,11 +153,12 @@ async def delete_user_from_bank(
     bank: Bank = Depends(retrieve_bank_with_users_dependency),
     user: User = Depends(retrieve_user_dependency),
     db: AsyncSession = Depends(get_async_session),
+    teller: User = Depends(get_teller_auth_user),
 ):
     try:
         bank.users.remove(user)
         await db.commit()
-    except Exception as e:
+    except Exception:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={
@@ -144,143 +167,75 @@ async def delete_user_from_bank(
         )
 
 
-@router.get("/{bank_id}/teller/list/", tags=["Bank~Teller"])
-async def list_tellers_in_bank(
-    bank: Bank = Depends(retrieve_bank_dependency),
+@router.get("/me/banks/list/", tags=["User-Me-Bank"])
+async def list_banks_user_me(
+    user: User = Depends(get_active_auth_user),
     db: AsyncSession = Depends(get_async_session),
 ):
-    result = await BankCRUD.list_tellers_of_bank(db=db, bank=bank)
-    print(result)
-    return {
-        "data": [UserListSchema.model_validate(i, from_attributes=True) for i in result]
-    }
+    query = (
+        select(Bank.id, Bank.name, Bank.location)
+        .select_from(Bank)
+        .join(BankUserAssociation, onclause=Bank.id == BankUserAssociation.bank_id)
+        .join(User, onclause=User.id == user.id)
+    )
 
+    banks = (await db.execute(query)).all()
 
-@router.post("/{bank_id}/teller/add/{user_id}/", tags=["Bank~Teller"])
-async def add_teller_to_bank(
-    bank: Bank = Depends(retrieve_bank_dependency),
-    user: User = Depends(retrieve_user_dependency),
-    db: AsyncSession = Depends(get_async_session),
-):
-    try:
-        result = await BankCRUD.add_teller_to_bank(db=db, bank=bank, user=user)
-        return {
-            "message": "Teller added successfully",
-            "data": UserListSchema.model_validate(result, from_attributes=True),
-        }
-
-    except IntegrityError:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail={"user_id": "Teller is already registered to this bank"},
-        )
-
-
-@router.get("/{bank_id}/account/list/", tags=["Bank~Account"])
-async def list_accounts_in_bank(
-    bank: Bank = Depends(retrieve_bank_dependency),
-    db: AsyncSession = Depends(get_async_session),
-):
-    result = await BankCRUD.list_accounts_in_bank(db=db, bank=bank)
     return {
         "data": [
-            AccountListSchema.model_validate(i, from_attributes=True) for i in result
+            BankCreatedRetrieve.model_validate(bank, from_attributes=True)
+            for bank in banks
         ],
     }
 
 
-@router.post("/account/create/", tags=["Bank~Account"])
-async def create_account_in_bank(
-    account_schema: AccountCreateSchema,
+@router.get("/me/banks/{bank_id}/detail/", tags=["User-Me-Bank"])
+async def detail_bank_user_me(
+    bank_id: UUID = Depends(bank_id_that_is_relevant),
+    user: User = Depends(get_active_auth_user),
     db: AsyncSession = Depends(get_async_session),
 ):
-    result = await BankCRUD.create_account_in_bank(account_schema=account_schema, db=db)
+    bank = (
+        await db.execute(
+            select(Bank).options(joinedload(Bank.loan_types)).where(Bank.id == bank_id)
+        )
+    ).scalar()
+
+    return {"data": BankListSchema.model_validate(bank, from_attributes=True)}
+
+
+@router.post("/me/banks/{bank_id}/register/", tags=["User-Me-Bank"])
+async def register_bank_user_me(
+    bank: Bank = Depends(retrieve_bank_with_users_dependency),
+    user: User = Depends(get_active_auth_user),
+    db: AsyncSession = Depends(get_async_session),
+):
+    try:
+        bank.users.append(user)
+        await db.commit()
+    except IntegrityError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="You are  already registered to this bank",
+        )
 
     return {
-        "message": "Account Created Successfully",
-        "data": AccountListSchema.model_validate(result, from_attributes=True),
+        "message": "User added successfully",
+        "data": UserListSchema.model_validate(user, from_attributes=True),
     }
 
 
-@router.post("/loan_type/create/", tags=["Bank~Loan"])
-async def create_loan_type_in_bank(
-    loan_type_schema: LoanTypeCreateSchema,
+@router.delete("/me/banks/{bank_id}/delete/", status_code=201, tags=["User-Me-Bank"])
+async def delete_bank_user_me(
+    bank: Bank = Depends(retrieve_bank_with_users_dependency),
+    user: User = Depends(get_active_auth_user),
     db: AsyncSession = Depends(get_async_session),
 ):
-    result = await BankCRUD.create_loan_type_in_bank(
-        db=db, loan_schema=loan_type_schema
-    )
-
-    return {
-        "message": "Loan Type Created Successfully",
-        "data": LoanTypesListSchema.model_validate(result, from_attributes=True),
-    }
-
-
-@router.post("/{account_id}/loan/create/", tags=["Bank~Loan"])
-async def create_loan_in_account(
-    account_id: int,
-    loan_schema: LoanCreateSchema,
-    db: AsyncSession = Depends(get_async_session),
-):
-    result = await BankCRUD.create_loan_in_account(
-        db=db, loan_schema=loan_schema, account_id=account_id
-    )
-
-    return {
-        "message": "Loan issued successfully",
-        "data": LoanListSchema.model_validate(result, from_attributes=True),
-    }
-
-
-@router.post("/{loan_id}/create/compensation/", tags=["Bank~Loan"])
-async def create_loan_compensation(
-    compensation_schema: LoanCompensationCreateSchema,
-    loan: Loan = Depends(retrieve_loan_dependency),
-    db: AsyncSession = Depends(get_async_session),
-):
-    result = await BankCRUD.create_loan_compensation(
-        db=db,
-        loan=loan,
-        loan_compensation_schema=compensation_schema,
-    )
-    return {
-        "message": "Loan compensation created successfully",
-        "data": LoanCompensationListSchema.model_validate(result, from_attributes=True),
-    }
-
-
-@router.post("/account/{account_id}/create/deposit/", tags=["Bank~Deposit"])
-async def create_deposit_in_account(
-    deposit_schema: DepositCreateSchema,
-    account: Account = Depends(retrieve_account_dependency),
-    db: AsyncSession = Depends(get_async_session),
-):
-    result = await BankCRUD.create_deposit_in_account(
-        db=db,
-        account=account,
-        deposit_schema=deposit_schema,
-    )
-
-    return {
-        "message": "Depo created successfully",
-        "data": DepositCreatedListSchema.model_validate(result, from_attributes=True),
-    }
-
-
-@router.post("/account/{account_id}/create/withdraw/", tags=["Bank~Withdraw"])
-async def create_withdraw_in_account(
-    withdraw_schema: WithdrawCreateSchema,
-    account: Account = Depends(retrieve_account_dependency),
-    db: AsyncSession = Depends(get_async_session),
-):
-    result = await BankCRUD.create_withdraw_in_account(
-        db=db,
-        account=account,
-        withdraw_schema=withdraw_schema,
-    )
-
-    return {
-        "message": "Withdraw created successfully",
-        "data": WithdrawCreatedListSchema.model_validate(result, from_attributes=True),
-    }
+    try:
+        bank.users.remove(user)
+        await db.commit()
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"you are not registered in this bank",
+        )
