@@ -15,6 +15,7 @@ from fastapi_cache import FastAPICache
 from fastapi_cache.backends.redis import RedisBackend
 
 from redis import asyncio as aioredis
+from src.config import settings
 
 app = FastAPI()
 
@@ -27,7 +28,7 @@ app.include_router(loan_routers.router)
 
 @app.on_event("startup")
 async def startup():
-    redis = aioredis.from_url("redis://localhost")
+    redis = aioredis.from_url(f"redis://{settings.REDIS_HOST}")
     FastAPICache.init(RedisBackend(redis), prefix="fastapi-cache")
 
 

@@ -6,8 +6,6 @@ import jwt
 
 import random
 import string
-import smtplib
-import ssl
 import redis
 
 redis_client = redis.StrictRedis(host=f"{settings.REDIS_HOST}", port=6379, db=0)

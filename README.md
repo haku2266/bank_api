@@ -9,7 +9,7 @@
 -   `Redis` as both message broker and NoSQL database
 -   `PostgreSQL` as a SQL database
 -   `Celery Worker` for background tasks
--   `Docker & Docker-composer` for containerization
+-   `Docker & Docker-compose` for containerization
 -   `Gunicorn & Univorn Workers` to handle the run state
 -   and more
 
@@ -25,6 +25,13 @@ _Get into the app directory_
 
 ```bash
 cd bank_api/
+```
+ 
+_Configure .env file_
+
+```bash
+mv .env.example .env
+nano .env # parse the necessary value
 ```
 
 _Run docker-compose file_
