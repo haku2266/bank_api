@@ -7,7 +7,7 @@ from fastapi import HTTPException
 from celery import Celery
 from src.config import settings
 
-app = Celery("tasks", broker="redis://localhost:6379")
+app = Celery("tasks", broker=f"redis://{settings.REDIS_HOST}:{settings.REDIS_PORT}")
 
 
 @app.task

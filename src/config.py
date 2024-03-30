@@ -23,6 +23,8 @@ class Settings(BaseSettings):
     POSTGRES_DB: str
     POSTGRES_USER: str
     POSTGRES_PASSWORD: str
+    REDIS_HOST: str
+    REDIS_PORT: str
     AUTH_JWT: AuthJWT = AuthJWT()
 
     @property

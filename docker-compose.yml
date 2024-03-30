@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
   postgres_db:
-    image: postgres:latest
+    image: postgres:16
     container_name: academy_postgres
     env_file:
       - .env
@@ -10,7 +10,7 @@ services:
       - postgres_data:/var/lib/postgresql/data/
     ports:
       - "5434:5432"
-  redis_db:
+  redis:
     image: redis:7.2.4
     ports:
       - "6379:6379"
@@ -20,33 +20,40 @@ services:
   web:
     build: .
     container_name: bank_backend
-    command: [ "uvicorn", "src.main:app", "--host", "0:0:0:0", "--port", "8000", "--reload" ]
-    volumes:
-      - ./:/usr/src/app/
+    # volumes:
+    #   - ./:/usr/src/app/
+    command: [ "/usr/src/app/docker/app.sh" ]
     env_file:
       - .env
     ports:
       - "8000:8000"
     depends_on:
       - postgres_db
-      - redis_db
+      - redis
 
   celery:
     build:
       context: .
       dockerfile: Dockerfile
-    command: ["celery", "-A", "src.tasks.tasks:app worker", "--loglevel", "INFO"]
+    command: [ "/usr/src/app/docker/celery.sh", "celery" ]
+    env_file:
+      - .env
+    container_name: celery_app
     depends_on:
       - web
-      - redis_db
+      - redis
 
   flower:
     build:
       context: .
       dockerfile: Dockerfile
-    command: ["celery", "-A", "src.tasks.tasks:app", "flower"]
+    command: [ "/usr/src/app/docker/celery.sh", "flower" ]
+    env_file:
+      - .env
+    container_name: flower_app
     depends_on:
-      - redis_db
+      - web
+      - redis
       - celery
     ports:
       - "5555:5555"

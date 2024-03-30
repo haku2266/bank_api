@@ -1,7 +1,3 @@
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-from fastapi import HTTPException
-
 import bcrypt
 from src.config import settings
 import datetime
@@ -14,7 +10,7 @@ import smtplib
 import ssl
 import redis
 
-redis_client = redis.StrictRedis(host="localhost", port=6379, db=0)
+redis_client = redis.StrictRedis(host=f"{settings.REDIS_HOST}", port=6379, db=0)
 
 
 # hashing password
